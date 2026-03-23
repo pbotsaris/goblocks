@@ -109,8 +109,6 @@ client := socketmode.New(appToken,
     socketmode.WithMaxConcurrency(20),
     socketmode.WithHandlerTimeout(60 * time.Second),
     socketmode.WithHelloTimeout(30 * time.Second),
-    socketmode.WithPingInterval(5 * time.Second),
-    socketmode.WithPongTimeout(10 * time.Second),
     socketmode.WithHTTPClient(&http.Client{Timeout: 30 * time.Second}),
 )
 ```
@@ -122,9 +120,46 @@ client := socketmode.New(appToken,
 | `WithMaxConcurrency` | `10` | Max concurrent handler goroutines |
 | `WithHandlerTimeout` | `30s` | Timeout for handler execution |
 | `WithHelloTimeout` | `30s` | Timeout waiting for hello message |
-| `WithPingInterval` | `5s` | Interval between ping messages |
-| `WithPongTimeout` | `10s` | Timeout waiting for pong response |
 | `WithHTTPClient` | Default client | HTTP client for API calls |
+
+## Colored Logging
+
+The package includes a colored log handler for better readability during development:
+
+```go
+// Use the built-in colored logger
+logger := socketmode.NewColoredLogger()
+
+// Or with a specific level
+logger := socketmode.NewColoredLoggerWithLevel(slog.LevelDebug)
+
+client := socketmode.New(token, socketmode.WithLogger(logger))
+```
+
+Output:
+
+```
+08:44:22 INFO  connection established app_id=A0AM77WSZ6W num_connections=1
+08:44:33 WARN  reconnecting error="connection reset" attempt=1
+08:45:00 ERROR handler failed error="timeout"
+```
+
+- **INFO** in bold green
+- **WARN** in bold yellow
+- **ERROR** in bold red
+- **DEBUG** in dim gray
+- Attribute keys in cyan
+
+For more control, use `ColoredHandlerOptions`:
+
+```go
+handler := socketmode.NewColoredHandler(&socketmode.ColoredHandlerOptions{
+    Level:      slog.LevelDebug,
+    TimeFormat: "15:04:05.000",
+    ShowDate:   true, // Include date in timestamp
+})
+logger := slog.New(handler)
+```
 
 ## Metrics & Observability
 
@@ -141,9 +176,6 @@ type MetricsHook interface {
     HandlerCompleted(envType string, duration time.Duration, err error)
     HandlerPanic(envType string, recovered any)
     WriteQueueDepth(depth int)
-    PingSent()
-    PongReceived(latency time.Duration)
-    PongTimeout()
 }
 ```
 
