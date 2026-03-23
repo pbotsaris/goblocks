@@ -43,9 +43,6 @@ type mockMetrics struct {
 	handlersStarted   int
 	handlersCompleted int
 	handlerPanics     int
-	pingsSent         int
-	pongsReceived     int
-	pongTimeouts      int
 }
 
 var _ MetricsHook = (*mockMetrics)(nil)
@@ -99,24 +96,6 @@ func (m *mockMetrics) HandlerPanic(envType string, recovered any) {
 }
 
 func (m *mockMetrics) WriteQueueDepth(depth int) {}
-
-func (m *mockMetrics) PingSent() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.pingsSent++
-}
-
-func (m *mockMetrics) PongReceived(latency time.Duration) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.pongsReceived++
-}
-
-func (m *mockMetrics) PongTimeout() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.pongTimeouts++
-}
 
 // mockServer is a mock WebSocket server for testing.
 type mockServer struct {

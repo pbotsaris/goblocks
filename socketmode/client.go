@@ -32,8 +32,6 @@ type Client struct {
 
 	// Connection configuration
 	helloTimeout time.Duration
-	pingInterval time.Duration
-	pongTimeout  time.Duration
 
 	// Shutdown coordination
 	shutdownMu sync.Mutex
@@ -55,8 +53,6 @@ func New(appToken string, opts ...Option) *Client {
 		maxConcurrency: 10,
 		handlerTimeout: 30 * time.Second,
 		helloTimeout:   30 * time.Second,
-		pingInterval:   5 * time.Second,
-		pongTimeout:    10 * time.Second,
 	}
 
 	for _, opt := range opts {
@@ -116,24 +112,6 @@ func WithHelloTimeout(d time.Duration) Option {
 	return func(c *Client) {
 		if d > 0 {
 			c.helloTimeout = d
-		}
-	}
-}
-
-// WithPingInterval sets the interval between ping messages.
-func WithPingInterval(d time.Duration) Option {
-	return func(c *Client) {
-		if d > 0 {
-			c.pingInterval = d
-		}
-	}
-}
-
-// WithPongTimeout sets the timeout for receiving pong responses.
-func WithPongTimeout(d time.Duration) Option {
-	return func(c *Client) {
-		if d > 0 {
-			c.pongTimeout = d
 		}
 	}
 }
@@ -212,8 +190,6 @@ func (c *Client) runOnce(ctx context.Context) error {
 		id:             connID,
 		url:            wsURL,
 		helloTimeout:   c.helloTimeout,
-		pingInterval:   c.pingInterval,
-		pongTimeout:    c.pongTimeout,
 		writeQueueSize: 100,
 		writeTimeout:   3 * time.Second,
 		logger:         c.logger,

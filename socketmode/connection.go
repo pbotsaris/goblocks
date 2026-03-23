@@ -13,26 +13,19 @@ import (
 
 // connection represents a single WebSocket connection to Slack.
 type connection struct {
-	id         string
-	url        string
-	conn       *websocket.Conn
-	writer     *writer
-	logger     *slog.Logger
-	metrics    MetricsHook
-	helloInfo  *HelloMessage
-	startTime  time.Time
-
-	// Ping/pong state
-	pingInterval  time.Duration
-	pongTimeout   time.Duration
-	lastPingSent  time.Time
-	lastPongRecv  time.Time
-	pingMu        sync.Mutex
+	id        string
+	url       string
+	conn      *websocket.Conn
+	writer    *writer
+	logger    *slog.Logger
+	metrics   MetricsHook
+	helloInfo *HelloMessage
+	startTime time.Time
 
 	// Shutdown coordination
-	cancel   context.CancelFunc
-	done     chan struct{}
-	closeErr error
+	cancel    context.CancelFunc
+	done      chan struct{}
+	closeErr  error
 	closeOnce sync.Once
 }
 
@@ -41,8 +34,6 @@ type connectionConfig struct {
 	id             string
 	url            string
 	helloTimeout   time.Duration
-	pingInterval   time.Duration
-	pongTimeout    time.Duration
 	writeQueueSize int
 	writeTimeout   time.Duration
 	logger         *slog.Logger
@@ -53,8 +44,6 @@ type connectionConfig struct {
 func defaultConnectionConfig() connectionConfig {
 	return connectionConfig{
 		helloTimeout:   30 * time.Second,
-		pingInterval:   5 * time.Second,
-		pongTimeout:    10 * time.Second,
 		writeQueueSize: 100,
 		writeTimeout:   3 * time.Second,
 		logger:         slog.Default(),
@@ -74,17 +63,17 @@ func dial(ctx context.Context, cfg connectionConfig) (*connection, error) {
 	}
 
 	connCtx, cancel := context.WithCancel(ctx)
+	_ = connCtx // Used by caller for connection lifetime
+
 	c := &connection{
-		id:           cfg.id,
-		url:          cfg.url,
-		conn:         wsConn,
-		logger:       logger,
-		metrics:      cfg.metrics,
-		pingInterval: cfg.pingInterval,
-		pongTimeout:  cfg.pongTimeout,
-		startTime:    time.Now(),
-		cancel:       cancel,
-		done:         make(chan struct{}),
+		id:        cfg.id,
+		url:       cfg.url,
+		conn:      wsConn,
+		logger:    logger,
+		metrics:   cfg.metrics,
+		startTime: time.Now(),
+		cancel:    cancel,
+		done:      make(chan struct{}),
 	}
 
 	// Create writer
@@ -105,7 +94,6 @@ func dial(ctx context.Context, cfg connectionConfig) (*connection, error) {
 	}
 
 	c.helloInfo = hello
-	c.lastPongRecv = time.Now() // Initialize pong time
 
 	logger.Info("connection established",
 		"app_id", hello.ConnectionInfo.AppID,
@@ -114,9 +102,6 @@ func dial(ctx context.Context, cfg connectionConfig) (*connection, error) {
 	)
 
 	cfg.metrics.ConnectionOpened(cfg.id)
-
-	// Start ping loop
-	go c.pingLoop(connCtx)
 
 	return c, nil
 }
@@ -154,65 +139,6 @@ func (c *connection) waitForHello(ctx context.Context) (*HelloMessage, error) {
 		// Ignore other messages before hello (shouldn't happen, but be safe)
 		c.logger.Debug("ignoring message before hello", "type", msg.Type)
 	}
-}
-
-// pingLoop sends periodic pings and monitors for pong responses.
-func (c *connection) pingLoop(ctx context.Context) {
-	ticker := time.NewTicker(c.pingInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-c.done:
-			return
-		case <-ticker.C:
-			if err := c.sendPing(ctx); err != nil {
-				c.logger.Debug("ping failed", "error", err)
-				return
-			}
-		}
-	}
-}
-
-// sendPing sends a ping and checks if we've received a recent pong.
-func (c *connection) sendPing(ctx context.Context) error {
-	c.pingMu.Lock()
-	defer c.pingMu.Unlock()
-
-	// Check if last pong is too old
-	if !c.lastPongRecv.IsZero() && time.Since(c.lastPongRecv) > c.pongTimeout {
-		c.metrics.PongTimeout()
-		c.logger.Warn("pong timeout, connection may be dead",
-			"last_pong", time.Since(c.lastPongRecv),
-			"timeout", c.pongTimeout,
-		)
-		c.closeInternal(fmt.Errorf("pong timeout"))
-		return ErrConnectionClosed
-	}
-
-	c.lastPingSent = time.Now()
-	c.metrics.PingSent()
-
-	pingCtx, cancel := context.WithTimeout(ctx, c.pingInterval)
-	defer cancel()
-
-	if err := c.writer.Ping(pingCtx); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// recordPong records that a pong was received.
-func (c *connection) recordPong() {
-	c.pingMu.Lock()
-	defer c.pingMu.Unlock()
-
-	latency := time.Since(c.lastPingSent)
-	c.lastPongRecv = time.Now()
-	c.metrics.PongReceived(latency)
 }
 
 // Read reads the next message from the WebSocket.

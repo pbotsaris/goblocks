@@ -52,22 +52,6 @@ func TestClient_Options(t *testing.T) {
 		}
 	})
 
-	t.Run("WithPingInterval sets interval", func(t *testing.T) {
-		client := New("xapp-test", WithPingInterval(10*time.Second))
-
-		if client.pingInterval != 10*time.Second {
-			t.Errorf("got %v, want 10s", client.pingInterval)
-		}
-	})
-
-	t.Run("WithPongTimeout sets timeout", func(t *testing.T) {
-		client := New("xapp-test", WithPongTimeout(20*time.Second))
-
-		if client.pongTimeout != 20*time.Second {
-			t.Errorf("got %v, want 20s", client.pongTimeout)
-		}
-	})
-
 	t.Run("default values are sensible", func(t *testing.T) {
 		client := New("xapp-test")
 

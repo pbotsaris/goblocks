@@ -153,8 +153,3 @@ func (w *writer) Close() {
 	})
 	<-w.done
 }
-
-// Ping sends a WebSocket ping frame.
-func (w *writer) Ping(ctx context.Context) error {
-	return w.conn.Ping(ctx)
-}

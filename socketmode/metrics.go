@@ -32,15 +32,6 @@ type MetricsHook interface {
 
 	// WriteQueueDepth is called periodically with the current write queue depth.
 	WriteQueueDepth(depth int)
-
-	// PingSent is called when a ping is sent to the server.
-	PingSent()
-
-	// PongReceived is called when a pong is received from the server.
-	PongReceived(latency time.Duration)
-
-	// PongTimeout is called when a pong is not received in time.
-	PongTimeout()
 }
 
 // NoopMetrics is a no-op implementation of MetricsHook.
@@ -56,8 +47,5 @@ func (n *NoopMetrics) EnvelopeReceived(envType string)                      {}
 func (n *NoopMetrics) EnvelopeAcked(envType string, latency time.Duration)  {}
 func (n *NoopMetrics) HandlerStarted(envType string)                        {}
 func (n *NoopMetrics) HandlerCompleted(envType string, duration time.Duration, err error) {}
-func (n *NoopMetrics) HandlerPanic(envType string, recovered any)           {}
-func (n *NoopMetrics) WriteQueueDepth(depth int)                            {}
-func (n *NoopMetrics) PingSent()                                            {}
-func (n *NoopMetrics) PongReceived(latency time.Duration)                   {}
-func (n *NoopMetrics) PongTimeout()                                         {}
+func (n *NoopMetrics) HandlerPanic(envType string, recovered any) {}
+func (n *NoopMetrics) WriteQueueDepth(depth int)                  {}
